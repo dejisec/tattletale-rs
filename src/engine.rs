@@ -1,3 +1,18 @@
+//! Engine: orchestrates parsing inputs, merging potfiles, deduplicating
+//! credentials, and marking targets. Provides streaming file-based loaders with
+//! optional memory-mapped I/O for performance on large inputs.
+//!
+//! Typical usage:
+//!
+//! ```no_run
+//! use tattletale::engine::Engine;
+//! # fn main() -> anyhow::Result<()> {
+//! let mut engine = Engine::new();
+//! engine.load_from_file_paths(&["/path/to/ntds.txt"], &[], &[])?;
+//! println!("{}", tattletale::report::render_summary(&engine));
+//! # Ok(())
+//! # }
+//! ```
 use std::collections::{HashMap, HashSet};
 
 use crate::dit::parse_dit_line;
@@ -9,18 +24,22 @@ use crate::{
 use anyhow::Result;
 use std::path::Path;
 
+/// Aggregates parsed credentials and exposes loading helpers.
 #[derive(Debug, Default)]
 pub struct Engine {
     pub credentials: Vec<Credential>,
 }
 
 impl Engine {
+    /// Create an empty engine with no loaded credentials.
     pub fn new() -> Self {
         Self {
             credentials: Vec::new(),
         }
     }
 
+    /// Load inputs already in-memory. Intended for tests and small programmatic
+    /// integrations. Performs cracking, deduplication, and target marking.
     pub fn load_from_strings(&mut self, dits: &[&str], pots: &[&str], targets: &[&str]) {
         // Parse inputs
         let mut all_creds: Vec<Credential> = Vec::new();
@@ -58,7 +77,7 @@ impl Engine {
     }
 
     /// Streamingly load from file paths using line iterators and optional mmap.
-    /// This method parses DIT, POT, and Target files in a memory-efficient way.
+    /// Parses DIT, POT, and Target files in a memory-efficient way.
     pub fn load_from_file_paths_with_threshold<P: AsRef<Path>>(
         &mut self,
         dit_paths: &[P],
@@ -123,6 +142,7 @@ impl Engine {
         Ok(())
     }
 
+    /// Convenience wrapper that uses the default mmap threshold.
     pub fn load_from_file_paths<P: AsRef<Path>>(
         &mut self,
         dit_paths: &[P],

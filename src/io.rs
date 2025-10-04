@@ -1,3 +1,17 @@
+//! I/O utilities for efficient line-by-line processing of large text files.
+//!
+//! Provides buffered and memory-mapped line iteration with CRLF handling. The
+//! `iter_lines_auto` helper chooses mmap when file size meets a caller-provided
+//! threshold. Mmap avoids extra copies but still returns owned `String`s per
+//! line for ergonomic downstream processing.
+//!
+//! Safety notes:
+//! - `memmap2::Mmap::map` is used inside an `unsafe` block as required by the
+//!   API; the mapping is read-only and the returned iterator bounds-checks
+//!   positions when scanning for newlines.
+//! - The iterator trims trailing `\r` to normalize Windows CRLF to `\n`.
+//! - Non-UTF8 sequences are lossily converted to UTF-8 using
+//!   `String::from_utf8_lossy`.
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::Path;
@@ -25,7 +39,7 @@ pub fn iter_lines_bufread<P: AsRef<Path>>(path: P) -> Result<LineIter> {
 }
 
 /// Iterate lines from a file path using mmap. This avoids copying but still
-/// allocates per-returned String; it scans for '\n' boundaries.
+/// allocates per-returned `String`; it scans for `\n` boundaries.
 pub fn iter_lines_mmap<P: AsRef<Path>>(path: P) -> Result<LineIter> {
     let file = File::open(&path).with_context(|| format!("open {}", path.as_ref().display()))?;
     let mmap =

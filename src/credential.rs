@@ -1,4 +1,14 @@
+//! Credential data model and helpers for parsing user/machine accounts from
+//! NTDS export lines, tracking hash types (LM/NT/both/null), crack status, and
+//! target flags.
+//!
+//! Instances of `Credential` are deduplicated by `down_level_logon_name` and
+//! effective `hashtext` within the `engine` orchestrator.
+//!
+//! Use [`Credential::fill_from_dit`] to populate a credential from a DIT line
+//! and [`Credential::crack`] to set the cleartext when present in potfiles.
 #[derive(Debug, Clone, Eq)]
+/// Represents a parsed account entry with associated hash metadata and state.
 pub struct Credential {
     pub down_level_logon_name: String,
     pub sam_account_name: String,
@@ -32,10 +42,19 @@ impl std::hash::Hash for Credential {
     }
 }
 
+impl Default for Credential {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Credential {
+    /// Well-known null LM hash value.
     pub const NULL_HASH_LM: &'static str = "aad3b435b51404eeaad3b435b51404ee";
+    /// Well-known null NT hash value.
     pub const NULL_HASH_NT: &'static str = "31d6cfe0d16ae931b73c59d7e0c089c0";
 
+    /// Construct an empty credential with sensible defaults.
     pub fn new() -> Self {
         Self {
             down_level_logon_name: String::new(),
@@ -59,6 +78,7 @@ impl Credential {
         }
     }
 
+    /// Populate identity fields from a `DOMAIN\\User` or `User` value.
     pub fn fill_with_username(&mut self, username: &str) {
         self.down_level_logon_name = username.to_string();
         self.is_machine_account = self.down_level_logon_name.trim_end().ends_with('$');
@@ -78,6 +98,9 @@ impl Credential {
         };
     }
 
+    /// Populate fields derived from a DIT export line parts. Determines user/
+    /// machine flags, domain components, and hash type flags, and sets the
+    /// effective `hashtext` to the non-null LM/NT value (NT wins if both).
     pub fn fill_from_dit(
         &mut self,
         down_level_logon_name: &str,
@@ -122,6 +145,7 @@ impl Credential {
         }
     }
 
+    /// Record cracked password cleartext and set `is_cracked` if non-empty.
     pub fn crack(&mut self, cleartext: &str) {
         self.cleartext = cleartext.to_string();
         if !self.cleartext.is_empty() {

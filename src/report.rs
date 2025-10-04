@@ -1,3 +1,7 @@
+//! Human-readable report rendering for terminal output.
+//!
+//! Produces a colored summary including overall statistics, high-value target
+//! status, and shared hash groupings (both target-inclusive and overall).
 use colored::*;
 
 use crate::{engine::Engine, stats::calculate_statistics};
@@ -8,10 +12,7 @@ pub fn render_summary(engine: &Engine) -> String {
         "{}\n",
         "TattleTale: Domain Secrets (NTDS) Analysis Results".bold()
     ));
-    out.push_str(&format!(
-        "{}\n",
-        "Password Hash Statistics".to_string().bold()
-    ));
+    out.push_str(&format!("{}\n", "Password Hash Statistics".bold()));
     let stats = calculate_statistics(&engine.credentials);
     out.push_str(&format!("Total creds: {}\n", engine.credentials.len()));
     out.push_str(&format!("All User Hashes: {}\n", stats.user.all_count));
@@ -31,7 +32,7 @@ pub fn render_summary(engine: &Engine) -> String {
         "Remaining User Hashes: {}\n",
         stats.valid_domain_user.all_count
     ));
-    out.push_str("\n");
+    out.push('\n');
     for (label, s) in [
         ("Valid Domain User", &stats.valid_domain_user),
         ("No Domain", &stats.no_domain),
@@ -51,7 +52,7 @@ pub fn render_summary(engine: &Engine) -> String {
     }
 
     // High-Value Targets
-    out.push_str("\n");
+    out.push('\n');
     out.push_str(&format!("{}\n", "High-Value Targets".bold()));
     let mut cracked_users: Vec<_> = engine
         .credentials
@@ -82,7 +83,7 @@ pub fn render_summary(engine: &Engine) -> String {
     }
 
     // Shared Password Hashes (with at least 1 target)
-    out.push_str("\n");
+    out.push('\n');
     out.push_str(&format!(
         "{}\n",
         "Shared Password Hashes (with at least 1 high-value target)".bold()
@@ -135,7 +136,7 @@ pub fn render_summary(engine: &Engine) -> String {
     }
 
     // Shared Password Hashes
-    out.push_str("\n");
+    out.push('\n');
     out.push_str(&format!("{}\n", "Shared Password Hashes".bold()));
     let mut any_shared = false;
     for (hash, creds) in shared.iter() {

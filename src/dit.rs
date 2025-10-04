@@ -1,11 +1,18 @@
+//! Parser for NTDS export lines.
+//!
+//! Expected format per line: `DOMAIN\\User:RID:LM_hash:NT_hash`. Extra fields
+//! after the fourth colon are ignored. Malformed lines produce `DitError` in
+//! single-line parsing and are skipped in bulk parsing.
 use crate::credential::Credential;
 
 #[derive(Debug, thiserror::Error)]
+/// Errors returned while parsing DIT content.
 pub enum DitError {
     #[error("malformed line: {0}")]
     MalformedLine(String),
 }
 
+/// Parse a single DIT export line into a `Credential`.
 pub fn parse_dit_line(line: &str) -> Result<Credential, DitError> {
     // Expected: username:user_id:LM_hash:NT_hash; allow extra fields, ignore after 4
     let mut parts = line.split(':');
@@ -30,6 +37,7 @@ pub fn parse_dit_line(line: &str) -> Result<Credential, DitError> {
     Ok(c)
 }
 
+/// Parse multiple lines of DIT content, skipping malformed/blank lines.
 pub fn parse_dit_contents(contents: &str) -> Vec<Credential> {
     contents
         .lines()

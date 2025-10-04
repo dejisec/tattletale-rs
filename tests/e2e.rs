@@ -68,8 +68,7 @@ fn mmap_threshold_and_streaming_works() {
         for _ in 0..10 {
             writeln!(
                 f,
-                "DOM\\U:1:{}:{}",
-                "aad3b435b51404eeaad3b435b51404ee", "8846f7eaee8fb117ad06bdd830b7586c"
+                "DOM\\U:1:aad3b435b51404eeaad3b435b51404ee:8846f7eaee8fb117ad06bdd830b7586c"
             )
             .unwrap();
         }
