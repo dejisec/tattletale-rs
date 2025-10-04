@@ -2,6 +2,7 @@ pub mod credential;
 pub mod dit;
 pub mod engine;
 pub mod export;
+pub mod io;
 pub mod pot;
 pub mod report;
 pub mod stats;

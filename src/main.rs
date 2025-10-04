@@ -6,6 +6,7 @@ use tattletale::{
     engine::Engine,
     export::{save_shared_hashes_csv, save_user_pass_txt},
     report::render_summary,
+    io::DEFAULT_MMAP_THRESHOLD_BYTES,
 };
 
 #[derive(Parser, Debug)]
@@ -26,8 +27,13 @@ struct Args {
 
     #[arg(short = 'o', long = "output")]
     output: Option<PathBuf>,
+
+    /// Override mmap threshold in bytes. If zero, disable mmap.
+    #[arg(long = "mmap-threshold", default_value_t = DEFAULT_MMAP_THRESHOLD_BYTES)]
+    mmap_threshold: u64,
 }
 
+#[allow(dead_code)]
 fn read_files(paths: &[PathBuf]) -> Vec<String> {
     paths
         .iter()
@@ -37,15 +43,9 @@ fn read_files(paths: &[PathBuf]) -> Vec<String> {
 
 fn main() {
     let args = Args::parse();
-    let dit_contents = read_files(&args.ditfiles);
-    let pot_contents = read_files(&args.potfiles);
-    let target_contents = read_files(&args.targetfiles);
-
     let mut engine = Engine::new();
-    let dit_refs: Vec<&str> = dit_contents.iter().map(|s| s.as_str()).collect();
-    let pot_refs: Vec<&str> = pot_contents.iter().map(|s| s.as_str()).collect();
-    let target_refs: Vec<&str> = target_contents.iter().map(|s| s.as_str()).collect();
-    engine.load_from_strings(&dit_refs, &pot_refs, &target_refs);
+    let threshold = if args.mmap_threshold == 0 { u64::MAX } else { args.mmap_threshold };
+    engine.load_from_file_paths_with_threshold(&args.ditfiles, &args.potfiles, &args.targetfiles, threshold);
 
     let summary = render_summary(&engine);
     println!("{}", summary);

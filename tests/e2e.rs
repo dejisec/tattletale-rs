@@ -41,3 +41,35 @@ fn e2e_runs_and_writes_outputs() {
 	let files: Vec<_> = fs::read_dir(&outdir).unwrap().collect();
 	assert!(files.len() >= 2);
 }
+
+#[test]
+fn mmap_threshold_and_streaming_works() {
+	let tmp = tempdir().unwrap();
+	let dit_path = tmp.path().join("ntds_big.txt");
+	let pot_path = tmp.path().join("hashcat_big.potfile");
+	let tgt_path = tmp.path().join("targets_big.txt");
+
+	// Create files larger than a tiny mmap threshold to force mmap path
+	let force_threshold: u64 = 32; // 32 bytes
+	{
+		let mut f = fs::File::create(&dit_path).unwrap();
+		for _ in 0..10 {
+			writeln!(f, "DOM\\U:1:{}:{}", 
+				"aad3b435b51404eeaad3b435b51404ee", 
+				"8846f7eaee8fb117ad06bdd830b7586c").unwrap();
+		}
+	}
+	{
+		let mut f = fs::File::create(&pot_path).unwrap();
+		writeln!(f, "8846f7eaee8fb117ad06bdd830b7586c:pw").unwrap();
+	}
+	{
+		let mut f = fs::File::create(&tgt_path).unwrap();
+		writeln!(f, "U").unwrap();
+	}
+
+	// Use library engine API directly to verify streaming+mmap produces cracked creds
+	let mut e = tattletale::engine::Engine::new();
+	e.load_from_file_paths_with_threshold(&[&dit_path], &[&pot_path], &[&tgt_path], force_threshold);
+	assert!(e.credentials.iter().all(|c| c.is_cracked));
+}
