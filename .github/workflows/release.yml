@@ -40,7 +40,7 @@ jobs:
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package artifacts
+      - name: Collect binary
         shell: bash
         run: |
           set -euo pipefail
@@ -50,14 +50,10 @@ jobs:
           mkdir -p "$OUT"
           case "$TARGET" in
             *windows*)
-              BIN=target/$TARGET/release/${APP}.exe
-              ARCHIVE=${APP}-${TARGET}.zip
-              7z a "$OUT/$ARCHIVE" "$BIN"
+              cp target/$TARGET/release/${APP}.exe $OUT/${APP}-${TARGET}.exe
               ;;
             *)
-              BIN=target/$TARGET/release/${APP}
-              ARCHIVE=${APP}-${TARGET}.tar.gz
-              tar -czf "$OUT/$ARCHIVE" -C "$(dirname "$BIN")" "$(basename "$BIN")"
+              cp target/$TARGET/release/${APP} $OUT/${APP}-${TARGET}
               ;;
           esac
 
@@ -82,13 +78,16 @@ jobs:
           find dist -type f -exec cp {} upload/ \;
           ls -lh upload
 
-      - name: Generate checksums
+      - name: Generate individual checksums
         shell: bash
         run: |
           cd upload
-          # Generate SHA256SUMS.txt with hashes of all artifacts
-          shasum -a 256 * > SHA256SUMS.txt
-          cat SHA256SUMS.txt
+          for f in *; do
+            if [ -f "$f" ]; then
+              shasum -a 256 "$f" > "$f.sha256"
+            fi
+          done
+          ls -lh
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
