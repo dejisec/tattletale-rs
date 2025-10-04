@@ -13,20 +13,25 @@ use csv::Writer;
 use crate::engine::Engine;
 
 pub fn save_shared_hashes_csv<P: AsRef<Path>>(engine: &Engine, path: P) -> Result<()> {
-    let mut map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut map: std::collections::HashMap<String, Vec<(String, bool)>> =
+        std::collections::HashMap::new();
     for c in &engine.credentials {
         if !c.is_hash_null && !c.hashtext.is_empty() {
             map.entry(c.hashtext.clone())
                 .or_default()
-                .push(c.down_level_logon_name.clone());
+                .push((c.down_level_logon_name.clone(), c.is_cracked));
         }
     }
     let mut wtr = Writer::from_path(path)?;
-    wtr.write_record(["Hash", "Username"])?;
+    wtr.write_record(["Hash", "Username", "Cracked"])?;
     for (hash, users) in map.into_iter() {
         if users.len() > 1 {
-            for u in users {
-                wtr.write_record([hash.as_str(), u.as_str()])?;
+            for (u, cracked) in users {
+                wtr.write_record([
+                    hash.as_str(),
+                    u.as_str(),
+                    if cracked { "true" } else { "false" },
+                ])?;
             }
         }
     }

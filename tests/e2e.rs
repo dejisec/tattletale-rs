@@ -44,6 +44,7 @@ fn e2e_runs_and_writes_outputs() {
         .arg(&pot_path)
         .arg("-t")
         .arg(&tgt_path)
+        .arg("--log-parse-stats")
         .arg("-o")
         .arg(&outdir);
     cmd.assert()
@@ -52,6 +53,15 @@ fn e2e_runs_and_writes_outputs() {
 
     let files: Vec<_> = fs::read_dir(&outdir).unwrap().collect();
     assert!(files.len() >= 2);
+
+    // Verify CSV has cracked column
+    let csv_path = fs::read_dir(&outdir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .find(|p| p.extension().map(|e| e == "csv").unwrap_or(false))
+        .expect("csv exists");
+    let csv_content = std::fs::read_to_string(csv_path).unwrap();
+    assert!(csv_content.starts_with("Hash,Username,Cracked"));
 }
 
 #[test]

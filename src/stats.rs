@@ -2,6 +2,7 @@
 //!
 //! Defines `BasicStats` (counts and percentages) and `Statistics` aggregating
 //! filtered categories. Helpers compute cracked and unique metrics per bucket.
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 use crate::credential::Credential;
@@ -114,6 +115,45 @@ pub fn calculate_statistics(all: &[Credential]) -> Statistics {
     }
 }
 
+/// Compute basic statistics per domain. Domain key is taken from
+/// `Credential.domain` (empty domains are ignored in this breakdown).
+pub fn domains_breakdown(all: &[Credential]) -> HashMap<String, BasicStats> {
+    let mut buckets: HashMap<String, Vec<Credential>> = HashMap::new();
+    for c in all.iter().cloned() {
+        if c.domain.is_empty() {
+            continue;
+        }
+        buckets.entry(c.domain.clone()).or_default().push(c);
+    }
+    let mut out: HashMap<String, BasicStats> = HashMap::new();
+    for (dom, creds) in buckets {
+        out.insert(dom, analyze_creds(&creds));
+    }
+    out
+}
+
+/// Return the top-N most reused cracked passwords across all credentials.
+/// Returns a vector of (password, count) sorted descending by count, then
+/// ascending by password to stabilize ordering for tests.
+pub fn top_reused_passwords(all: &[Credential], top_n: usize) -> Vec<(String, usize)> {
+    use std::cmp::Reverse;
+    let mut freq: HashMap<String, usize> = HashMap::new();
+    for c in all {
+        if c.is_cracked && !c.cleartext.is_empty() {
+            *freq.entry(c.cleartext.clone()).or_insert(0) += 1;
+        }
+    }
+    let mut items: Vec<(String, usize)> = freq.into_iter().collect();
+    items.sort_by(|a, b| {
+        // primary: count desc, secondary: password asc
+        (Reverse(a.1), &a.0).cmp(&(Reverse(b.1), &b.0))
+    });
+    if items.len() > top_n {
+        items.truncate(top_n);
+    }
+    items
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,5 +170,29 @@ mod tests {
         assert_eq!(s.user.all_count, 2);
         assert_eq!(s.nt.all_count, 2);
         assert!(s.lm.all_count == 0 || s.lm.all_count == 1); // depends on whether LM null handled
+    }
+
+    #[test]
+    fn domain_breakdowns_and_top_reused_passwords() {
+        let mut a1 = Credential::new();
+        a1.fill_from_dit("D1\\A1", Credential::NULL_HASH_LM, "nt1");
+        a1.crack("pass");
+        let mut a2 = Credential::new();
+        a2.fill_from_dit("D1\\A2", Credential::NULL_HASH_LM, "nt2");
+        a2.crack("pass");
+        let mut b1 = Credential::new();
+        b1.fill_from_dit("D2\\B1", Credential::NULL_HASH_LM, "nt3");
+        b1.crack("word");
+        let creds = vec![a1, a2, b1];
+
+        let by_domain = super::domains_breakdown(&creds);
+        assert_eq!(by_domain.get("D1").unwrap().all_count, 2);
+        assert_eq!(by_domain.get("D2").unwrap().all_count, 1);
+
+        let top = super::top_reused_passwords(&creds, 2);
+        assert_eq!(top[0].0, "pass");
+        assert_eq!(top[0].1, 2);
+        assert_eq!(top[1].0, "word");
+        assert_eq!(top[1].1, 1);
     }
 }

@@ -28,6 +28,8 @@ use std::path::Path;
 #[derive(Debug, Default)]
 pub struct Engine {
     pub credentials: Vec<Credential>,
+    /// Optional counts collected during parsing
+    pub parse_stats: Option<ParseStats>,
 }
 
 impl Engine {
@@ -35,6 +37,7 @@ impl Engine {
     pub fn new() -> Self {
         Self {
             credentials: Vec::new(),
+            parse_stats: None,
         }
     }
 
@@ -74,6 +77,8 @@ impl Engine {
                 c.is_target = true;
             }
         }
+        // clear parse stats for string-based path
+        self.parse_stats = None;
     }
 
     /// Streamingly load from file paths using line iterators and optional mmap.
@@ -88,6 +93,7 @@ impl Engine {
         use std::collections::{HashMap, HashSet};
         let mut all_creds: Vec<Credential> = Vec::new();
         // DIT: parse line-by-line
+        let mut dit_malformed = 0usize;
         for p in dit_paths {
             let iter = iter_lines_auto(p, mmap_threshold_bytes)?;
             for line in iter.flatten() {
@@ -97,11 +103,14 @@ impl Engine {
                 }
                 if let Ok(c) = parse_dit_line(trimmed) {
                     all_creds.push(c);
+                } else {
+                    dit_malformed += 1;
                 }
             }
         }
         // POT: merge to hashmap
         let mut pot_merged: HashMap<String, String> = HashMap::new();
+        let mut pot_malformed = 0usize;
         for p in pot_paths {
             let iter = iter_lines_auto(p, mmap_threshold_bytes)?;
             for line in iter.flatten() {
@@ -111,6 +120,8 @@ impl Engine {
                 }
                 if let Ok((h, pw)) = crate::pot::parse_pot_line(s) {
                     pot_merged.insert(h, pw);
+                } else {
+                    pot_malformed += 1;
                 }
             }
         }
@@ -139,6 +150,7 @@ impl Engine {
                 c.is_target = true;
             }
         }
+        self.parse_stats = Some(ParseStats { dit_malformed, pot_malformed });
         Ok(())
     }
 
@@ -157,6 +169,7 @@ impl Engine {
         use rayon::prelude::*;
 
         // DIT: parse lines per file in parallel, then flatten
+        let dit_malformed = std::sync::atomic::AtomicUsize::new(0);
         let all_creds: Vec<Credential> = dit_paths
             .par_iter()
             .map(|p| -> Result<Vec<Credential>> {
@@ -167,8 +180,14 @@ impl Engine {
                     if trimmed.is_empty() {
                         continue;
                     }
-                    if let Ok(c) = crate::dit::parse_dit_line(trimmed) {
-                        v.push(c);
+                    match crate::dit::parse_dit_line(trimmed) {
+                        Ok(c) => v.push(c),
+                        Err(_) => {
+                            dit_malformed.fetch_add(
+                                1,
+                                std::sync::atomic::Ordering::Relaxed,
+                            );
+                        }
                     }
                 }
                 Ok(v)
@@ -179,6 +198,7 @@ impl Engine {
             })?;
 
         // POT: merge maps in parallel
+        let pot_malformed = std::sync::atomic::AtomicUsize::new(0);
         let pot_vecs: Vec<Vec<(String, String)>> = pot_paths
             .par_iter()
             .map(|p| -> Result<Vec<(String, String)>> {
@@ -189,8 +209,14 @@ impl Engine {
                     if s.is_empty() {
                         continue;
                     }
-                    if let Ok((h, pw)) = crate::pot::parse_pot_line(s) {
-                        v.push((h, pw));
+                    match crate::pot::parse_pot_line(s) {
+                        Ok((h, pw)) => v.push((h, pw)),
+                        Err(_) => {
+                            pot_malformed.fetch_add(
+                                1,
+                                std::sync::atomic::Ordering::Relaxed,
+                            );
+                        }
                     }
                 }
                 Ok(v)
@@ -239,6 +265,10 @@ impl Engine {
                 c.is_target = true;
             }
         }
+        self.parse_stats = Some(ParseStats {
+            dit_malformed: dit_malformed.load(std::sync::atomic::Ordering::Relaxed),
+            pot_malformed: pot_malformed.load(std::sync::atomic::Ordering::Relaxed),
+        });
         Ok(())
     }
     /// Convenience wrapper that uses the default mmap threshold.
@@ -255,6 +285,13 @@ impl Engine {
             DEFAULT_MMAP_THRESHOLD_BYTES,
         )
     }
+}
+
+/// Counts of malformed/ignored lines encountered during parsing.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ParseStats {
+    pub dit_malformed: usize,
+    pub pot_malformed: usize,
 }
 
 #[cfg(test)]

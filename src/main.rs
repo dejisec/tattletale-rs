@@ -51,6 +51,10 @@ struct Args {
     /// Enable parallel loading of input files
     #[arg(long = "parallel")]
     parallel: bool,
+
+    /// Log counts of skipped/malformed lines encountered during parsing
+    #[arg(long = "log-parse-stats")]
+    log_parse_stats: bool,
 }
 
 #[allow(dead_code)]
@@ -162,6 +166,18 @@ fn main() {
         if let Err(e) = save_user_pass_txt(&engine, &txt) {
             error!("failed to write {}: {}", txt.display(), e);
             std::process::exit(6);
+        }
+    }
+
+    if args.log_parse_stats {
+        if let Some(stats) = engine.parse_stats {
+            log::info!(
+                "parse stats: dit_malformed={}, pot_malformed={}",
+                stats.dit_malformed,
+                stats.pot_malformed
+            );
+        } else {
+            log::info!("parse stats: (not collected for this run)");
         }
     }
 }

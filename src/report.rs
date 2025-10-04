@@ -4,7 +4,10 @@
 //! status, and shared hash groupings (both target-inclusive and overall).
 use colored::*;
 
-use crate::{engine::Engine, stats::calculate_statistics};
+use crate::{
+    engine::Engine,
+    stats::{calculate_statistics, domains_breakdown, top_reused_passwords},
+};
 
 pub fn render_summary(engine: &Engine) -> String {
     let mut out = String::new();
@@ -176,6 +179,42 @@ pub fn render_summary(engine: &Engine) -> String {
     }
     if !any_shared {
         out.push_str("(No shared hashes)\n");
+    }
+
+    // Domain Breakdown
+    out.push('\n');
+    out.push_str(&format!("{}\n", "Domain Breakdown".bold()));
+    let mut by_domain = domains_breakdown(&engine.credentials)
+        .into_iter()
+        .collect::<Vec<(String, crate::stats::BasicStats)>>();
+    by_domain.sort_by(|a, b| a.0.cmp(&b.0));
+    if by_domain.is_empty() {
+        out.push_str("(No domains)\n");
+    } else {
+        for (dom, s) in by_domain {
+            out.push_str(&format!("{}\n", dom.bold()));
+            out.push_str(&format!("  All: {}\n", s.all_count));
+            out.push_str(&format!("  Cracked: {}\n", s.cracked_count));
+            out.push_str(&format!("  Cracked Percentage: {}\n", s.cracked_percentage));
+            out.push_str(&format!("  Unique: {}\n", s.unique_count));
+            out.push_str(&format!("  Cracked Unique: {}\n", s.unique_cracked_count));
+            out.push_str(&format!(
+                "  Cracked Unique Percentage: {}\n",
+                s.unique_cracked_percentage
+            ));
+        }
+    }
+
+    // Top Reused Passwords
+    out.push('\n');
+    out.push_str(&format!("{}\n", "Top Reused Passwords".bold()));
+    let top = top_reused_passwords(&engine.credentials, 10);
+    if top.is_empty() {
+        out.push_str("(No cracked passwords)\n");
+    } else {
+        for (pw, count) in top {
+            out.push_str(&format!("  {}: {}\n", pw, count));
+        }
     }
 
     out
