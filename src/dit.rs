@@ -46,10 +46,7 @@ pub fn parse_dit_contents(contents: &str) -> Vec<Credential> {
             if trimmed.is_empty() {
                 return None;
             }
-            match parse_dit_line(trimmed) {
-                Ok(c) => Some(c),
-                Err(_) => None,
-            }
+            parse_dit_line(trimmed).ok()
         })
         .collect()
 }
