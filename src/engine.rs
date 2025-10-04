@@ -150,7 +150,10 @@ impl Engine {
                 c.is_target = true;
             }
         }
-        self.parse_stats = Some(ParseStats { dit_malformed, pot_malformed });
+        self.parse_stats = Some(ParseStats {
+            dit_malformed,
+            pot_malformed,
+        });
         Ok(())
     }
 
@@ -183,10 +186,7 @@ impl Engine {
                     match crate::dit::parse_dit_line(trimmed) {
                         Ok(c) => v.push(c),
                         Err(_) => {
-                            dit_malformed.fetch_add(
-                                1,
-                                std::sync::atomic::Ordering::Relaxed,
-                            );
+                            dit_malformed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         }
                     }
                 }
@@ -212,10 +212,7 @@ impl Engine {
                     match crate::pot::parse_pot_line(s) {
                         Ok((h, pw)) => v.push((h, pw)),
                         Err(_) => {
-                            pot_malformed.fetch_add(
-                                1,
-                                std::sync::atomic::Ordering::Relaxed,
-                            );
+                            pot_malformed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         }
                     }
                 }

@@ -38,6 +38,7 @@ cargo build --release
 - Text: `tattletale_user_pass_<timestamp>.txt` (only for cracked creds).
   
 The summary also includes:
+
 - Domain Breakdown: per-domain counts and cracked rates.
 - Top Reused Passwords: the most frequent cracked passwords.
 
