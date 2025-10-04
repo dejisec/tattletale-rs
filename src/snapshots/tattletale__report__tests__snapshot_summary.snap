@@ -3,14 +3,16 @@ source: src/report.rs
 expression: s
 ---
 TattleTale: Domain Secrets (NTDS) Analysis Results
+
 Password Hash Statistics
+────────────────────────
+
 Total creds: 1
 All User Hashes: 1
 All Machine Hashes: 0
 Removable Empty Hashes: 0
 No-Domain Hashes: 0
 Remaining User Hashes: 1
-
 Valid Domain User
   All: 1
   Cracked: 1
@@ -41,15 +43,23 @@ NT
   Cracked Unique Percentage: 100.00%
 
 High-Value Targets
+──────────────────
+
 (No target files provided or no targets matched)
 
 Shared Password Hashes (with at least 1 high-value target)
+──────────────────────────────────────────────────────────
+
 (No shared hashes with targets)
 
 Shared Password Hashes
+──────────────────────
+
 (No shared hashes)
 
 Domain Breakdown
+────────────────
+
 DOM
   All: 1
   Cracked: 1
@@ -59,4 +69,6 @@ DOM
   Cracked Unique Percentage: 100.00%
 
 Top Reused Passwords
+────────────────────
+
   pw: 1

@@ -216,3 +216,32 @@ fn e2e_runs_and_writes_outputs_parallel() {
     let files: Vec<_> = fs::read_dir(&outdir).unwrap().collect();
     assert!(files.len() >= 2);
 }
+
+#[test]
+fn e2e_color_never_has_no_ansi() {
+    let tmp = tempdir().unwrap();
+    let dit_path = tmp.path().join("ntds.txt");
+    let pot_path = tmp.path().join("hashcat.potfile");
+    {
+        let mut f = fs::File::create(&dit_path).unwrap();
+        writeln!(
+            f,
+            "DOM\\A:1:aad3b435b51404eeaad3b435b51404ee:8846f7eaee8fb117ad06bdd830b7586c"
+        )
+        .unwrap();
+    }
+    {
+        let mut f = fs::File::create(&pot_path).unwrap();
+        writeln!(f, "8846f7eaee8fb117ad06bdd830b7586c:pw").unwrap();
+    }
+    let mut cmd = Command::cargo_bin("tattletale").unwrap();
+    cmd.arg("-d")
+        .arg(&dit_path)
+        .arg("-p")
+        .arg(&pot_path)
+        .arg("--color")
+        .arg("never");
+    let out = cmd.assert().success().get_output().stdout.clone();
+    let s = String::from_utf8_lossy(&out);
+    assert!(!s.contains("\u{1b}["));
+}

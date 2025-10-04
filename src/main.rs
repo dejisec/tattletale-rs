@@ -8,13 +8,14 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+use colored::Colorize;
 use log::{LevelFilter, error, warn};
 use tattletale::{
     engine::Engine,
     export::{save_shared_hashes_csv, save_user_pass_txt},
     io::DEFAULT_MMAP_THRESHOLD_BYTES,
-    report::render_summary,
+    report::render_summary_with_top,
 };
 
 #[derive(Parser, Debug)]
@@ -55,7 +56,37 @@ struct Args {
     /// Log counts of skipped/malformed lines encountered during parsing
     #[arg(long = "log-parse-stats")]
     log_parse_stats: bool,
+
+    /// Limit number of entries in "Top Reused Passwords"
+    #[arg(long = "top", default_value_t = 10)]
+    top_limit: usize,
+
+    /// Control color output (auto, always, never)
+    #[arg(long = "color", value_enum, default_value_t = ColorChoice::Auto)]
+    color: ColorChoice,
+
+    /// Suppress summary output (still writes exports if -o is provided)
+    #[arg(short = 'q', long = "quiet")]
+    quiet: bool,
 }
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum ColorChoice {
+    Auto,
+    Always,
+    Never,
+}
+
+const ASCII_TITLE: &str = r#" 
+/$$$$$$$$          /$$     /$$     /$$        /$$$$$$$$        /$$          
+|__  $$__/         | $$    | $$    | $$       |__  $$__/       | $$          
+   | $$  /$$$$$$  /$$$$$$ /$$$$$$  | $$  /$$$$$$ | $$  /$$$$$$ | $$  /$$$$$$ 
+   | $$ |____  $$|_  $$_/|_  $$_/  | $$ /$$__  $$| $$ |____  $$| $$ /$$__  $$
+   | $$  /$$$$$$$  | $$    | $$    | $$| $$$$$$$$| $$  /$$$$$$$| $$| $$$$$$$$
+   | $$ /$$__  $$  | $$ /$$| $$ /$$| $$| $$_____/| $$ /$$__  $$| $$| $$_____/
+   | $$|  $$$$$$$  |  $$$$/|  $$$$/| $$|  $$$$$$$| $$|  $$$$$$$| $$|  $$$$$$$
+   |__/ \_______/   \___/   \___/  |__/ \_______/|__/ \_______/|__/ \_______/
+"#;
 
 #[allow(dead_code)]
 fn read_files(paths: &[PathBuf]) -> Vec<String> {
@@ -101,6 +132,16 @@ fn verify_inputs(args: &Args) -> Result<()> {
 fn main() {
     let args = Args::parse();
     init_logger(args.verbose);
+    // Configure color policy
+    match args.color {
+        ColorChoice::Always => {
+            colored::control::set_override(true);
+        }
+        ColorChoice::Never => {
+            colored::control::set_override(false);
+        }
+        ColorChoice::Auto => {}
+    }
     if let Err(e) = verify_inputs(&args) {
         error!("{}", e);
         std::process::exit(2);
@@ -144,8 +185,12 @@ fn main() {
         std::process::exit(3);
     }
 
-    let summary = render_summary(&engine);
-    println!("{}", summary);
+    if !args.quiet {
+        // Print banner and summary
+        println!("{}", ASCII_TITLE.bold().green());
+        let summary = render_summary_with_top(&engine, args.top_limit);
+        println!("{}", summary);
+    }
 
     if let Some(outdir) = args.output {
         if let Err(e) = fs::create_dir_all(&outdir) {

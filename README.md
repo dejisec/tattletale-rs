@@ -2,24 +2,33 @@
 
 Rust port of the [TattleTale](https://github.com/coryavra/tattletale) NTDS dump reporter. Parses NTDS export lines, hashcat potfiles, and target lists to produce a summary and optional exports.
 
-## Install
-
-```bash
-cargo build --release
-```
-
 ## Usage
 
+Use the pre-built binaries from the [releases](https://github.com/dejisec/tattletale-rs/releases) page.
+
+Or build from source:
+
 ```bash
-  tattletale \
-  -d /path/to/ntds_export.txt \
-  -p /path/to/hashcat.potfile \
-  -t /path/to/targets.txt \
-  -o ./reports \
-  --mmap-threshold 16777216 \
-  --parallel \
-  --log-parse-stats \
-  -vv
+git clone https://github.com/dejisec/tattletale-rs.git
+cd tattletale-rs
+cargo build --release # or `cargo install --path .`
+```
+
+Then run:
+
+```bash
+tattletale \
+-d /path/to/ntds_export.txt \
+-p /path/to/hashcat.potfile \
+-t /path/to/targets.txt \
+-o ./reports \
+--mmap-threshold 16777216 \
+--parallel \
+--log-parse-stats \
+--top 10 \
+--color auto \
+-q \
+-vv
 ```
 
 - `-d/--ditfiles` (required): One or more NTDS export files. Each line: `DOMAIN\\User:RID:LM:NT`.
@@ -29,6 +38,9 @@ cargo build --release
 - `--mmap-threshold` (optional): File-size threshold in bytes to use memory-mapped I/O (default: 16777216 ≈ 16 MiB). Set to `0` to disable mmap (always buffered streaming).
 - `--parallel` (optional): Parse input files in parallel to leverage multiple CPU cores.
 - `--log-parse-stats` (optional): Log counts of skipped/malformed lines while parsing DIT/POT files.
+- `--top <N>` (optional): Limit entries in the "Top Reused Passwords" section (default: 10).
+- `--color <WHEN>` (optional): Control terminal colors. One of `auto`, `always`, `never` (default: `auto`).
+- `-q/--quiet` (optional): Suppress banner and summary output (still writes exports when `-o` is provided).
 - `-v` (optional): Increase verbosity. Repeat for more detail (`-v`, `-vv`, `-vvv`).
 
 ## Outputs
