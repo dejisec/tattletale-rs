@@ -47,6 +47,10 @@ struct Args {
     /// Increase verbosity (-v, -vv, -vvv)
     #[arg(short = 'v', action = clap::ArgAction::Count)]
     verbose: u8,
+
+    /// Enable parallel loading of input files
+    #[arg(long = "parallel")]
+    parallel: bool,
 }
 
 #[allow(dead_code)]
@@ -115,12 +119,23 @@ fn main() {
         .filter(|p| p.exists())
         .cloned()
         .collect();
-    if let Err(e) = engine.load_from_file_paths_with_threshold(
-        &args.ditfiles,
-        &potfiles_existing,
-        &targetfiles_existing,
-        threshold,
-    ) {
+
+    let load_res = if args.parallel {
+        engine.load_from_file_paths_parallel_with_threshold(
+            &args.ditfiles,
+            &potfiles_existing,
+            &targetfiles_existing,
+            threshold,
+        )
+    } else {
+        engine.load_from_file_paths_with_threshold(
+            &args.ditfiles,
+            &potfiles_existing,
+            &targetfiles_existing,
+            threshold,
+        )
+    };
+    if let Err(e) = load_res {
         error!("failed to load inputs: {}", e);
         std::process::exit(3);
     }

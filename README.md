@@ -17,6 +17,7 @@ cargo build --release
   -t /path/to/targets.txt \
   -o ./reports \
   --mmap-threshold 16777216 \
+  --parallel \
   -vv
 ```
 
@@ -25,6 +26,7 @@ cargo build --release
 - `-t/--targetfiles` (optional): One or more files with target usernames (one per line).
 - `-o/--output` (optional): Directory to write CSV of shared hashes and `user:pass` text file.
 - `--mmap-threshold` (optional): File-size threshold in bytes to use memory-mapped I/O (default: 16777216 ≈ 16 MiB). Set to `0` to disable mmap (always buffered streaming).
+- `--parallel` (optional): Parse input files in parallel to leverage multiple CPU cores.
 - `-v` (optional): Increase verbosity. Repeat for more detail (`-v`, `-vv`, `-vvv`).
 
 ## Outputs
@@ -38,6 +40,7 @@ cargo build --release
 - The tool processes input files in a streaming, line-by-line fashion to minimize memory usage.
 - For files whose size is at or above `--mmap-threshold`, memory-mapped I/O is used for faster scanning with low overhead.
 - Set `--mmap-threshold 0` to disable mmap entirely (pure buffered streaming).
+- Parallel loading: with `--parallel`, DIT, POT, and target files are parsed concurrently across files (using Rayon). Results are identical to sequential mode; ordering of internal processing may differ.
 
 ## Testing
 

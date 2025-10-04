@@ -152,3 +152,57 @@ fn export_failure_causes_non_zero_exit() {
         .arg(&outdir);
     cmd.assert().failure();
 }
+
+#[test]
+fn e2e_runs_and_writes_outputs_parallel() {
+    let tmp = tempdir().unwrap();
+    let dit_path1 = tmp.path().join("ntds1.txt");
+    let dit_path2 = tmp.path().join("ntds2.txt");
+    let pot_path = tmp.path().join("hashcat.potfile");
+    let tgt_path = tmp.path().join("targets.txt");
+    let outdir = tmp.path().join("out");
+    fs::create_dir_all(&outdir).unwrap();
+
+    {
+        let mut f1 = fs::File::create(&dit_path1).unwrap();
+        writeln!(
+            f1,
+            "DOM\\Admin:1:aad3b435b51404eeaad3b435b51404ee:8846f7eaee8fb117ad06bdd830b7586c"
+        )
+        .unwrap();
+        let mut f2 = fs::File::create(&dit_path2).unwrap();
+        writeln!(
+            f2,
+            "DOM\\User:2:aad3b435b51404eeaad3b435b51404ee:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        )
+        .unwrap();
+    }
+    {
+        let mut f = fs::File::create(&pot_path).unwrap();
+        writeln!(f, "8846f7eaee8fb117ad06bdd830b7586c:Password1!").unwrap();
+        writeln!(f, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:P@ssw0rd").unwrap();
+    }
+    {
+        let mut f = fs::File::create(&tgt_path).unwrap();
+        writeln!(f, "Admin").unwrap();
+    }
+
+    let mut cmd = Command::cargo_bin("tattletale").unwrap();
+    cmd.arg("-d")
+        .arg(&dit_path1)
+        .arg("-d")
+        .arg(&dit_path2)
+        .arg("-p")
+        .arg(&pot_path)
+        .arg("-t")
+        .arg(&tgt_path)
+        .arg("--parallel")
+        .arg("-o")
+        .arg(&outdir);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Password Hash Statistics"));
+
+    let files: Vec<_> = fs::read_dir(&outdir).unwrap().collect();
+    assert!(files.len() >= 2);
+}
