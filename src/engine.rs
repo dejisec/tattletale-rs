@@ -6,6 +6,7 @@ use crate::{
     credential::Credential, dit::parse_dit_contents, pot::parse_pot_contents,
     targets::parse_targets,
 };
+use anyhow::Result;
 use std::path::Path;
 
 #[derive(Debug, Default)]
@@ -64,47 +65,44 @@ impl Engine {
         pot_paths: &[P],
         target_paths: &[P],
         mmap_threshold_bytes: u64,
-    ) {
+    ) -> Result<()> {
         use std::collections::{HashMap, HashSet};
         let mut all_creds: Vec<Credential> = Vec::new();
         // DIT: parse line-by-line
         for p in dit_paths {
-            if let Ok(iter) = iter_lines_auto(p, mmap_threshold_bytes) {
-                for line in iter.flatten() {
-                    let trimmed = line.trim();
-                    if trimmed.is_empty() {
-                        continue;
-                    }
-                    if let Ok(c) = parse_dit_line(trimmed) {
-                        all_creds.push(c);
-                    }
+            let iter = iter_lines_auto(p, mmap_threshold_bytes)?;
+            for line in iter.flatten() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                if let Ok(c) = parse_dit_line(trimmed) {
+                    all_creds.push(c);
                 }
             }
         }
         // POT: merge to hashmap
         let mut pot_merged: HashMap<String, String> = HashMap::new();
         for p in pot_paths {
-            if let Ok(iter) = iter_lines_auto(p, mmap_threshold_bytes) {
-                for line in iter.flatten() {
-                    let s = line.trim();
-                    if s.is_empty() {
-                        continue;
-                    }
-                    if let Ok((h, pw)) = crate::pot::parse_pot_line(s) {
-                        pot_merged.insert(h, pw);
-                    }
+            let iter = iter_lines_auto(p, mmap_threshold_bytes)?;
+            for line in iter.flatten() {
+                let s = line.trim();
+                if s.is_empty() {
+                    continue;
+                }
+                if let Ok((h, pw)) = crate::pot::parse_pot_line(s) {
+                    pot_merged.insert(h, pw);
                 }
             }
         }
         // Targets: collect names lowercase
         let mut target_names: HashSet<String> = HashSet::new();
         for p in target_paths {
-            if let Ok(iter) = iter_lines_auto(p, mmap_threshold_bytes) {
-                for line in iter.flatten() {
-                    let name = line.trim();
-                    if !name.is_empty() {
-                        target_names.insert(name.to_lowercase());
-                    }
+            let iter = iter_lines_auto(p, mmap_threshold_bytes)?;
+            for line in iter.flatten() {
+                let name = line.trim();
+                if !name.is_empty() {
+                    target_names.insert(name.to_lowercase());
                 }
             }
         }
@@ -122,6 +120,7 @@ impl Engine {
                 c.is_target = true;
             }
         }
+        Ok(())
     }
 
     pub fn load_from_file_paths<P: AsRef<Path>>(
@@ -129,13 +128,13 @@ impl Engine {
         dit_paths: &[P],
         pot_paths: &[P],
         target_paths: &[P],
-    ) {
+    ) -> Result<()> {
         self.load_from_file_paths_with_threshold(
             dit_paths,
             pot_paths,
             target_paths,
             DEFAULT_MMAP_THRESHOLD_BYTES,
-        );
+        )
     }
 }
 

@@ -16,7 +16,8 @@ cargo build --release
   -p /path/to/hashcat.potfile \
   -t /path/to/targets.txt \
   -o ./reports \
-  --mmap-threshold 16777216
+  --mmap-threshold 16777216 \
+  -vv
 ```
 
 - `-d/--ditfiles` (required): One or more NTDS export files. Each line: `DOMAIN\\User:RID:LM:NT`.
@@ -24,8 +25,10 @@ cargo build --release
 - `-t/--targetfiles` (optional): One or more files with target usernames (one per line).
 - `-o/--output` (optional): Directory to write CSV of shared hashes and `user:pass` text file.
 - `--mmap-threshold` (optional): File-size threshold in bytes to use memory-mapped I/O (default: 16777216 ≈ 16 MiB). Set to `0` to disable mmap (always buffered streaming).
+- `-v` (optional): Increase verbosity. Repeat for more detail (`-v`, `-vv`, `-vvv`).
 
 ## Outputs
+
 - Terminal summary with counts and percentages.
 - CSV: `tattletale_shared_hashes_<timestamp>.csv` (hash, username for shared hashes).
 - Text: `tattletale_user_pass_<timestamp>.txt` (only for cracked creds).
